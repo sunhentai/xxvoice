@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XX双锁语音系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+        
+        .header {
+            background: linear-gradient(to right, #4776E6, #8E54E9);
+            color: white;
+            text-align: center;
+            padding: 30px 20px;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        /* XX锁图案设计 */
+        .xx-locks {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px auto;
+        }
+        
+        .xx-lock {
+            position: relative;
+            width: 60px;
+            height: 60px;
+        }
+        
+        .xx-lock .line1, 
+        .xx-lock .line2 {
+            position: absolute;
+            width: 100%;
+            height: 12px;
+            background-color: #FF5252;
+            border-radius: 6px;
+        }
+        
+        .xx-lock .line1 {
+            transform: rotate(45deg);
+            top: 24px;
+        }
+        
+        .xx-lock .line2 {
+            transform: rotate(-45deg);
+            top: 24px;
+        }
+        
+        .xx-lock .circle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background-color: #FF5252;
+            border-radius: 50%;
+            top: 18px;
+            left: 18px;
+            z-index: 1;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .input-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 15px 15px 15px 50px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .input-group input:focus {
+            border-color: #4776E6;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(71, 118, 230, 0.2);
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 42px;
+            color: #777;
+            font-size: 20px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(to right, #4776E6, #8E54E9);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(71, 118, 230, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(71, 118, 230, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .audio-player {
+            display: none;
+            margin-top: 30px;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .audio-player h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        audio {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            text-align: center;
+            margin-top: 15px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+        
+        .shake {
+            animation: shake 0.5s ease;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 15px;
+            }
+            
+            .header {
+                padding: 20px 15px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .xx-locks {
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-lock"></i> XX双锁语音系统</h1>
+            <p>输入密码解锁对应语音消息</p>
+            
+            <!-- XX锁图案 -->
+            <div class="xx-locks">
+                <div class="xx-lock">
+                    <div class="line1"></div>
+                    <div class="line2"></div>
+                    <div class="circle"></div>
+                </div>
+                <div class="xx-lock">
+                    <div class="line1"></div>
+                    <div class="line2"></div>
+                    <div class="circle"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="input-group">
+                <label for="password"><i class="fas fa-key"></i> 请输入访问密码</label>
+                <div style="position: relative;">
+                    <i class="fas fa-lock input-icon"></i>
+                    <input type="password" id="password" placeholder="输入密码...">
+                </div>
+            </div>
+            
+            <button class="btn" id="submitBtn">
+                <i class="fas fa-unlock-alt"></i> 解锁语音
+            </button>
+            
+            <div class="error-message" id="errorMessage">
+                <i class="fas fa-exclamation-circle"></i> 密码错误，请重试！
+            </div>
+            
+            <!-- 语音1播放器（明文密码） -->
+            <div class="audio-player" id="audioPlayer1">
+                <h3><i class="fas fa-music"></i> 语音消息1</h3>
+                <audio controls id="audioElement1">
+                    <!-- 替换为你的第一个语音文件URL -->
+                    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+                    您的浏览器不支持音频元素。
+                </audio>
+                <p>第一条语音内容</p>
+            </div>
+            
+            <!-- 语音2播放器 -->
+            <div class="audio-player" id="audioPlayer2">
+                <h3><i class="fas fa-music"></i> 语音消息2</h3>
+                <audio controls id="audioElement2">
+                    <!-- 替换为你的第二个语音文件URL -->
+                    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" type="audio/mpeg">
+                    您的浏览器不支持音频元素。
+                </audio>
+                <p>第二条语音内容</p>
+            </div>
+            
+            <!-- 语音3播放器 -->
+            <div class="audio-player" id="audioPlayer3">
+                <h3><i class="fas fa-music"></i> 语音消息3</h3>
+                <audio controls id="audioElement3">
+                    <!-- 替换为你的第三个语音文件URL -->
+                    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" type="audio/mpeg">
+                    您的浏览器不支持音频元素。
+                </audio>
+                <p>第三条语音内容</p>
+            </div>
+            
+            <!-- 语音4播放器 -->
+            <div class="audio-player" id="audioPlayer4">
+                <h3><i class="fas fa-music"></i> 语音消息4</h3>
+                <audio controls id="audioElement4">
+                    <!-- 替换为你的第四个语音文件URL -->
+                    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" type="audio/mpeg">
+                    您的浏览器不支持音频元素。
+                </audio>
+                <p>第四条语音内容</p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>安全语音访问系统</p>
+        </div>
+    </div>
+
+    <!-- 引入MD5库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('password');
+            const submitBtn = document.getElementById('submitBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            const container = document.querySelector('.container');
+            
+            // 密码配置
+            // 第一个密码为明文，后三个为MD5哈希
+            const passwordConfig = [
+                { password: "voice123", playerId: "audioPlayer1" }, // 明文密码
+                { hash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", playerId: "audioPlayer2" }, // secret456
+                { hash: "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7", playerId: "audioPlayer3" }, // mypass789
+                { hash: "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c", playerId: "audioPlayer4" }  // secure000
+            ];
+
+            // 初始化隐藏所有语音播放器
+            passwordConfig.forEach(config => {
+                document.getElementById(config.playerId).style.display = 'none';
+            });
+
+            submitBtn.addEventListener('click', function() {
+                const enteredPassword = passwordInput.value;
+                let matchedPlayerId = null;
+                
+                // 检查密码
+                for (const config of passwordConfig) {
+                    if (config.password) {
+                        // 明文密码检查
+                        if (enteredPassword === config.password) {
+                            matchedPlayerId = config.playerId;
+                            break;
+                        }
+                    } else {
+                        // MD5哈希密码检查
+                        const enteredHash = md5(enteredPassword);
+                        if (enteredHash === config.hash) {
+                            matchedPlayerId = config.playerId;
+                            break;
+                        }
+                    }
+                }
+                
+                if (matchedPlayerId) {
+                    // 密码正确
+                    errorMessage.style.display = 'none';
+                    
+                    // 隐藏所有语音播放器
+                    passwordConfig.forEach(config => {
+                        document.getElementById(config.playerId).style.display = 'none';
+                    });
+                    
+                    // 显示对应的播放器
+                    const playerElement = document.getElementById(matchedPlayerId);
+                    playerElement.style.display = 'block';
+                    
+                    // 播放音频
+                    const audioId = 'audioElement' + matchedPlayerId.slice(-1);
+                    const audioElement = document.getElementById(audioId);
+                    setTimeout(() => {
+                        audioElement.play();
+                    }, 500);
+                    
+                    // 动画效果
+                    container.style.transform = 'scale(1.02)';
+                    setTimeout(() => {
+                        container.style.transform = 'scale(1)';
+                    }, 300);
+                } else {
+                    // 密码错误
+                    errorMessage.style.display = 'block';
+                    passwordInput.classList.add('shake');
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                    
+                    setTimeout(() => {
+                        passwordInput.classList.remove('shake');
+                    }, 500);
+                }
+            });
+
+            // 支持按Enter键提交
+            passwordInput.addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    submitBtn.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
