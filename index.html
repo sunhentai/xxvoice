@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>听歌系统</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -51,7 +53,6 @@
             opacity: 0.9;
         }
         
-        /* XX锁图案设计 */
         .xx-locks {
             display: flex;
             justify-content: center;
@@ -263,15 +264,14 @@
             </button>
             
             <div class="error-message" id="errorMessage">
-                <i class="fas fa-exclamation-circle"></i> 密码错误，请滚！
+                <i class="fas fa-exclamation-circle"></i> 密码错误，请重试！
             </div>
             
             <!-- 语音1播放器（明文密码） -->
             <div class="audio-player" id="audioPlayer1">
                 <h3><i class="fas fa-music"></i> 语音消息1</h3>
                 <audio controls id="audioElement1">
-                    <!-- 替换为你的第一个语音文件URL -->
-                    <source src="https://github.com/sunhentai/xxvoice/raw/refs/heads/main/A%20Thousand%20Years.mp3" type="audio/mpeg">
+                    <source id="audioSource1" type="audio/mpeg">
                     您的浏览器不支持音频元素。
                 </audio>
                 <p>A Thousand Years</p>
@@ -281,8 +281,7 @@
             <div class="audio-player" id="audioPlayer2">
                 <h3><i class="fas fa-music"></i> 语音消息2</h3>
                 <audio controls id="audioElement2">
-                    <!-- 替换为你的第二个语音文件URL -->
-                    <source src="https://github.com/sunhentai/xxvoice/raw/refs/heads/main/%E6%83%B3.mp3" type="audio/mpeg">
+                    <source id="audioSource2" type="audio/mpeg">
                     您的浏览器不支持音频元素。
                 </audio>
                 <p>老婆我想你</p>
@@ -292,8 +291,7 @@
             <div class="audio-player" id="audioPlayer3">
                 <h3><i class="fas fa-music"></i> 语音消息3</h3>
                 <audio controls id="audioElement3">
-                    <!-- 替换为你的第三个语音文件URL -->
-                    <source src="https://github.com/sunhentai/xxvoice/raw/refs/heads/main/%E7%88%B1.mp3" type="audio/mpeg">
+                    <source id="audioSource3" type="audio/mpeg">
                     您的浏览器不支持音频元素。
                 </audio>
                 <p>老婆我爱你</p>
@@ -303,8 +301,7 @@
             <div class="audio-player" id="audioPlayer4">
                 <h3><i class="fas fa-music"></i> 语音消息4</h3>
                 <audio controls id="audioElement4">
-                    <!-- 替换为你的第四个语音文件URL -->
-                    <source src="https://github.com/sunhentai/xxvoice/raw/refs/heads/main/c.mp3" type="audio/mpeg">
+                    <source id="audioSource4" type="audio/mpeg">
                     您的浏览器不支持音频元素。
                 </audio>
                 <p>騷老婆爱死你</p>
@@ -326,13 +323,32 @@
             const errorMessage = document.getElementById('errorMessage');
             const container = document.querySelector('.container');
             
-            // 密码配置
-            // 第一个密码为明文，后三个为MD5哈希
+            // 密码和音频配置
             const passwordConfig = [
-                { password: "123456", playerId: "audioPlayer1" }, // 明文密码
-                { hash: "a902e466dd7423fda9ef2807cb951843", playerId: "audioPlayer2" }, // secret456
-                { hash: "aab648fcc91dc1047dc98eef204eb786", playerId: "audioPlayer3" }, // mypass789
-                { hash: "d92689ce5fe9245197aba10b95e23c29", playerId: "audioPlayer4" }  // secure000
+                { 
+                    password: "123456", 
+                    playerId: "audioPlayer1", 
+                    url: "https://cdn.jsdelivr.net/gh/sunhentai/xxvoice@main/A%20Thousand%20Years.mp3",
+                    title: "A Thousand Years"
+                },
+                { 
+                    hash: "a902e466dd7423fda9ef2807cb951843", // secret456
+                    playerId: "audioPlayer2", 
+                    url: "https://cdn.jsdelivr.net/gh/sunhentai/xxvoice@main/%E6%83%B3.mp3",
+                    title: "老婆我想你"
+                },
+                { 
+                    hash: "aab648fcc91dc1047dc98eef204eb786", // mypass789
+                    playerId: "audioPlayer3", 
+                    url: "https://cdn.jsdelivr.net/gh/sunhentai/xxvoice@main/%E7%88%B1.mp3",
+                    title: "老婆我爱你"
+                },
+                { 
+                    hash: "d92689ce5fe9245197aba10b95e23c29", // secure000
+                    playerId: "audioPlayer4", 
+                    url: "https://cdn.jsdelivr.net/gh/sunhentai/xxvoice@main/c.mp3",
+                    title: "騷老婆爱死你"
+                }
             ];
 
             // 初始化隐藏所有语音播放器
@@ -342,27 +358,27 @@
 
             submitBtn.addEventListener('click', function() {
                 const enteredPassword = passwordInput.value;
-                let matchedPlayerId = null;
+                let matchedConfig = null;
                 
                 // 检查密码
                 for (const config of passwordConfig) {
                     if (config.password) {
                         // 明文密码检查
                         if (enteredPassword === config.password) {
-                            matchedPlayerId = config.playerId;
+                            matchedConfig = config;
                             break;
                         }
                     } else {
                         // MD5哈希密码检查
                         const enteredHash = md5(enteredPassword);
                         if (enteredHash === config.hash) {
-                            matchedPlayerId = config.playerId;
+                            matchedConfig = config;
                             break;
                         }
                     }
                 }
                 
-                if (matchedPlayerId) {
+                if (matchedConfig) {
                     // 密码正确
                     errorMessage.style.display = 'none';
                     
@@ -372,12 +388,15 @@
                     });
                     
                     // 显示对应的播放器
-                    const playerElement = document.getElementById(matchedPlayerId);
+                    const playerElement = document.getElementById(matchedConfig.playerId);
                     playerElement.style.display = 'block';
                     
-                    // 播放音频
-                    const audioId = 'audioElement' + matchedPlayerId.slice(-1);
+                    // 动态设置音频 URL，添加时间戳防止缓存
+                    const audioId = 'audioElement' + matchedConfig.playerId.slice(-1);
+                    const audioSource = document.getElementById('audioSource' + matchedConfig.playerId.slice(-1));
                     const audioElement = document.getElementById(audioId);
+                    audioSource.src = `${matchedConfig.url}?t=${Date.now()}`;
+                    audioElement.load(); // 重新加载音频
                     setTimeout(() => {
                         audioElement.play();
                     }, 500);
@@ -389,6 +408,7 @@
                     }, 300);
                 } else {
                     // 密码错误
+                    errorMessage.textContent = '密码错误，请重试！';
                     errorMessage.style.display = 'block';
                     passwordInput.classList.add('shake');
                     passwordInput.value = '';
