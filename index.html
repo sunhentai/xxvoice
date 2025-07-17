@@ -183,6 +183,58 @@
             display: none;
         }
         
+        .message-section {
+            display: none;
+            padding: 30px;
+        }
+        
+        .message-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .message-list {
+            margin-top: 20px;
+        }
+        
+        .message-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .message-item p {
+            margin: 5px 0;
+        }
+        
+        .message-item .time {
+            font-size: 12px;
+            color: #777;
+        }
+        
+        .delete-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .delete-btn:hover {
+            background: #c0392b;
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -204,6 +256,7 @@
             color: #777;
             font-size: 14px;
             border-top: 1px solid #eee;
+            display: none; /* 留言界面隐藏页脚 */
         }
         
         @media (max-width: 480px) {
@@ -223,6 +276,10 @@
                 padding: 20px;
             }
             
+            .message-section {
+                padding: 20px;
+            }
+            
             .xx-locks {
                 gap: 20px;
             }
@@ -231,9 +288,9 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
+        <div class="header" id="header">
             <h1><i class="fas fa-lock"></i> 听歌系统</h1>
-            <p>输入密码解锁对应语音消息</p>
+            <p>输入密码解锁对应语音消息或留言功能</p>
             
             <!-- XX锁图案 -->
             <div class="xx-locks">
@@ -250,8 +307,8 @@
             </div>
         </div>
         
-        <div class="content">
-            <div class="input-group">
+        <div class="content" id="content">
+            <div class="input-group" id="inputGroup">
                 <label for="password"><i class="fas fa-key"></i> 请输入访问密码</label>
                 <div style="position: relative;">
                     <i class="fas fa-lock input-icon"></i>
@@ -260,7 +317,7 @@
             </div>
             
             <button class="btn" id="submitBtn">
-                <i class="fas fa-unlock-alt"></i> 解锁语音
+                <i class="fas fa-unlock-alt"></i> 解锁
             </button>
             
             <div class="error-message" id="errorMessage">
@@ -304,11 +361,21 @@
                     <source id="audioSource4" type="audio/mpeg">
                     您的浏览器不支持音频元素。
                 </audio>
-                <p>騷老婆爱死你</p>
+                <p>不可描述</p>
+            </div>
+            
+            <!-- 留言区域 -->
+            <div class="message-section" id="messageSection">
+                <h3><i class="fas fa-comment"></i> 留言板</h3>
+                <textarea class="message-input" id="messageInput" placeholder="输入你的留言..."></textarea>
+                <button class="btn" id="submitMessageBtn">
+                    <i class="fas fa-paper-plane"></i> 提交留言
+                </button>
+                <div class="message-list" id="messageList"></div>
             </div>
         </div>
         
-        <div class="footer">
+        <div class="footer" id="footer">
             <p>安全语音访问系统</p>
         </div>
     </div>
@@ -322,8 +389,16 @@
             const submitBtn = document.getElementById('submitBtn');
             const errorMessage = document.getElementById('errorMessage');
             const container = document.querySelector('.container');
+            const header = document.getElementById('header');
+            const content = document.getElementById('content');
+            const inputGroup = document.getElementById('inputGroup');
+            const footer = document.getElementById('footer');
+            const messageSection = document.getElementById('messageSection');
+            const messageInput = document.getElementById('messageInput');
+            const submitMessageBtn = document.getElementById('submitMessageBtn');
+            const messageList = document.getElementById('messageList');
             
-            // 密码和音频配置
+            // 密码和音频/留言配置
             const passwordConfig = [
                 { 
                     password: "123456", 
@@ -347,15 +422,77 @@
                     hash: "d92689ce5fe9245197aba10b95e23c29", // secure000
                     playerId: "audioPlayer4", 
                     url: "https://cdn.jsdelivr.net/gh/sunhentai/xxvoice@main/c.mp3",
-                    title: "騷老婆爱死你"
+                    title: "不可描述"
+                },
+                { 
+                    hash: "5716bf8b4ad548e8cbfd9dc5dc4181fd", // 第五个密码，用于留言
+                    playerId: "messageSection"
                 }
             ];
 
-            // 初始化隐藏所有语音播放器
+            // 初始化隐藏所有语音播放器和留言区域
             passwordConfig.forEach(config => {
-                document.getElementById(config.playerId).style.display = 'none';
+                if (config.playerId.startsWith('audioPlayer')) {
+                    document.getElementById(config.playerId).style.display = 'none';
+                }
             });
+            messageSection.style.display = 'none';
 
+            // 从 localStorage 加载留言
+            function loadMessages() {
+                const messages = JSON.parse(localStorage.getItem('messages') || '[]');
+                messageList.innerHTML = '';
+                messages.forEach((msg, index) => {
+                    const messageItem = document.createElement('div');
+                    messageItem.className = 'message-item';
+                    messageItem.innerHTML = `
+                        <div>
+                            <p>${msg.text}</p>
+                            <p class="time">${msg.time}</p>
+                        </div>
+                        <button class="delete-btn" data-index="${index}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    `;
+                    messageList.appendChild(messageItem);
+                });
+
+                // 添加删除按钮事件
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const index = this.getAttribute('data-index');
+                        deleteMessage(index);
+                    });
+                });
+            }
+
+            // 保存留言到 localStorage
+            function saveMessage(text) {
+                const messages = JSON.parse(localStorage.getItem('messages') || '[]');
+                const time = new Date().toLocaleString('zh-CN', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit',
+                    hour12: false,
+                    timeZone: 'Asia/Hong_Kong'
+                });
+                messages.push({ text, time });
+                localStorage.setItem('messages', JSON.stringify(messages));
+                loadMessages();
+            }
+
+            // 删除留言
+            function deleteMessage(index) {
+                const messages = JSON.parse(localStorage.getItem('messages') || '[]');
+                messages.splice(index, 1);
+                localStorage.setItem('messages', JSON.stringify(messages));
+                loadMessages();
+            }
+
+            // 提交密码
             submitBtn.addEventListener('click', function() {
                 const enteredPassword = passwordInput.value;
                 let matchedConfig = null;
@@ -382,24 +519,45 @@
                     // 密码正确
                     errorMessage.style.display = 'none';
                     
-                    // 隐藏所有语音播放器
+                    // 隐藏所有语音播放器和留言区域
                     passwordConfig.forEach(config => {
-                        document.getElementById(config.playerId).style.display = 'none';
+                        if (config.playerId.startsWith('audioPlayer')) {
+                            document.getElementById(config.playerId).style.display = 'none';
+                        }
                     });
+                    messageSection.style.display = 'none';
                     
-                    // 显示对应的播放器
-                    const playerElement = document.getElementById(matchedConfig.playerId);
-                    playerElement.style.display = 'block';
-                    
-                    // 动态设置音频 URL，添加时间戳防止缓存
-                    const audioId = 'audioElement' + matchedConfig.playerId.slice(-1);
-                    const audioSource = document.getElementById('audioSource' + matchedConfig.playerId.slice(-1));
-                    const audioElement = document.getElementById(audioId);
-                    audioSource.src = `${matchedConfig.url}?t=${Date.now()}`;
-                    audioElement.load(); // 重新加载音频
-                    setTimeout(() => {
-                        audioElement.play();
-                    }, 500);
+                    // 根据密码显示音频播放器或留言区域
+                    if (matchedConfig.playerId.startsWith('audioPlayer')) {
+                        // 显示音频播放器
+                        header.style.display = 'block';
+                        content.style.display = 'block';
+                        inputGroup.style.display = 'block';
+                        submitBtn.style.display = 'block';
+                        footer.style.display = 'block';
+                        
+                        const playerElement = document.getElementById(matchedConfig.playerId);
+                        playerElement.style.display = 'block';
+                        
+                        // 动态设置音频 URL，添加时间戳防止缓存
+                        const audioId = 'audioElement' + matchedConfig.playerId.slice(-1);
+                        const audioSource = document.getElementById('audioSource' + matchedConfig.playerId.slice(-1));
+                        const audioElement = document.getElementById(audioId);
+                        audioSource.src = `${matchedConfig.url}?t=${Date.now()}`;
+                        audioElement.load();
+                        setTimeout(() => {
+                            audioElement.play();
+                        }, 500);
+                    } else if (matchedConfig.playerId === 'messageSection') {
+                        // 显示留言板，隐藏其他界面
+                        header.style.display = 'none';
+                        content.style.display = 'block';
+                        inputGroup.style.display = 'none';
+                        submitBtn.style.display = 'none';
+                        footer.style.display = 'none';
+                        messageSection.style.display = 'block';
+                        loadMessages();
+                    }
                     
                     // 动画效果
                     container.style.transform = 'scale(1.02)';
@@ -420,10 +578,32 @@
                 }
             });
 
-            // 支持按Enter键提交
+            // 提交留言
+            submitMessageBtn.addEventListener('click', function() {
+                const messageText = messageInput.value.trim();
+                if (messageText) {
+                    saveMessage(messageText);
+                    messageInput.value = '';
+                } else {
+                    errorMessage.textContent = '留言不能为空！';
+                    errorMessage.style.display = 'block';
+                    setTimeout(() => {
+                        errorMessage.style.display = 'none';
+                    }, 2000);
+                }
+            });
+
+            // 支持按Enter键提交密码
             passwordInput.addEventListener('keyup', function(event) {
                 if (event.key === 'Enter') {
                     submitBtn.click();
+                }
+            });
+
+            // 支持按Enter键提交留言
+            messageInput.addEventListener('keyup', function(event) {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    submitMessageBtn.click();
                 }
             });
         });
