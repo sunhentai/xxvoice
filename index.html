@@ -361,7 +361,7 @@
                     <source id="audioSource4" type="audio/mpeg">
                     您的浏览器不支持音频元素。
                 </audio>
-                <p>不可描述</p>
+                <p>騷老婆爱死你</p>
             </div>
             
             <!-- 留言区域 -->
@@ -382,8 +382,26 @@
 
     <!-- 引入MD5库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
+    <!-- 引入Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"></script>
     
     <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDi-n6CD4nzdKrIW9yH9YIdWu3t4ghTBLI",
+            authDomain: "musicmessagesystem.firebaseapp.com",
+            projectId: "musicmessagesystem",
+            storageBucket: "musicmessagesystem.firebasestorage.app",
+            messagingSenderId: "1065289192026",
+            appId: "1:1065289192026:web:4cd388db98a33d48eafe63",
+            measurementId: "G-C3BDG5LGRS"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         document.addEventListener('DOMContentLoaded', function() {
             const passwordInput = document.getElementById('password');
             const submitBtn = document.getElementById('submitBtn');
@@ -422,7 +440,7 @@
                     hash: "d92689ce5fe9245197aba10b95e23c29", // secure000
                     playerId: "audioPlayer4", 
                     url: "https://cdn.jsdelivr.net/gh/sunhentai/xxvoice@main/c.mp3",
-                    title: "不可描述"
+                    title: "騷老婆爱死你"
                 },
                 { 
                     hash: "5716bf8b4ad548e8cbfd9dc5dc4181fd", // 第五个密码，用于留言
@@ -438,37 +456,42 @@
             });
             messageSection.style.display = 'none';
 
-            // 从 localStorage 加载留言
+            // 从 Firebase 加载留言
             function loadMessages() {
-                const messages = JSON.parse(localStorage.getItem('messages') || '[]');
-                messageList.innerHTML = '';
-                messages.forEach((msg, index) => {
-                    const messageItem = document.createElement('div');
-                    messageItem.className = 'message-item';
-                    messageItem.innerHTML = `
-                        <div>
-                            <p>${msg.text}</p>
-                            <p class="time">${msg.time}</p>
-                        </div>
-                        <button class="delete-btn" data-index="${index}">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    `;
-                    messageList.appendChild(messageItem);
-                });
+                database.ref('messages').orderByChild('time').on('value', snapshot => {
+                    messageList.innerHTML = '';
+                    const messages = [];
+                    snapshot.forEach(childSnapshot => {
+                        messages.push({ id: childSnapshot.key, ...childSnapshot.val() });
+                    });
+                    // 按时间倒序显示
+                    messages.reverse().forEach(msg => {
+                        const messageItem = document.createElement('div');
+                        messageItem.className = 'message-item';
+                        messageItem.innerHTML = `
+                            <div>
+                                <p>${msg.text}</p>
+                                <p class="time">${msg.time}</p>
+                            </div>
+                            <button class="delete-btn" data-id="${msg.id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        `;
+                        messageList.appendChild(messageItem);
+                    });
 
-                // 添加删除按钮事件
-                document.querySelectorAll('.delete-btn').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const index = this.getAttribute('data-index');
-                        deleteMessage(index);
+                    // 添加删除按钮事件
+                    document.querySelectorAll('.delete-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const id = this.getAttribute('data-id');
+                            deleteMessage(id);
+                        });
                     });
                 });
             }
 
-            // 保存留言到 localStorage
+            // 保存留言到 Firebase
             function saveMessage(text) {
-                const messages = JSON.parse(localStorage.getItem('messages') || '[]');
                 const time = new Date().toLocaleString('zh-CN', { 
                     year: 'numeric', 
                     month: '2-digit', 
@@ -479,17 +502,12 @@
                     hour12: false,
                     timeZone: 'Asia/Hong_Kong'
                 });
-                messages.push({ text, time });
-                localStorage.setItem('messages', JSON.stringify(messages));
-                loadMessages();
+                database.ref('messages').push({ text, time });
             }
 
             // 删除留言
-            function deleteMessage(index) {
-                const messages = JSON.parse(localStorage.getItem('messages') || '[]');
-                messages.splice(index, 1);
-                localStorage.setItem('messages', JSON.stringify(messages));
-                loadMessages();
+            function deleteMessage(id) {
+                database.ref('messages/' + id).remove();
             }
 
             // 提交密码
