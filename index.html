@@ -381,10 +381,12 @@
     </div>
 
     <!-- 引入MD5库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
-    <!-- 引入Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/blueimp-md5@2.19.0/js/md5.min.js"></script>
+    <!-- 引入Firebase 兼容版本 -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <!-- 如果需要匿名认证，添加 auth 兼容版本 -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     
     <script>
         // Firebase 配置
@@ -394,15 +396,22 @@
             projectId: "musicmessagesystem",
             storageBucket: "musicmessagesystem.firebasestorage.app",
             messagingSenderId: "1065289192026",
-            appId: "1:1065289192026:web:4cd388db98a33d48eafe63",
-            measurementId: "G-C3BDG5LGRS"
+            appId: "1:1065289192026:web:4cd388db98a33d48eafe63"
         };
 
         // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
+        try {
+            firebase.initializeApp(firebaseConfig);
+            console.log('Firebase 初始化成功');
+            // 启用匿名认证（如果数据库规则要求）
+            firebase.auth().signInAnonymously().catch(error => console.error('匿名认证失败:', error));
+        } catch (error) {
+            console.error('Firebase 初始化失败:', error);
+        }
         const database = firebase.database();
 
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM 加载完成');
             const passwordInput = document.getElementById('password');
             const submitBtn = document.getElementById('submitBtn');
             const errorMessage = document.getElementById('errorMessage');
@@ -458,82 +467,114 @@
 
             // 从 Firebase 加载留言
             function loadMessages() {
-                database.ref('messages').orderByChild('time').on('value', snapshot => {
-                    messageList.innerHTML = '';
-                    const messages = [];
-                    snapshot.forEach(childSnapshot => {
-                        messages.push({ id: childSnapshot.key, ...childSnapshot.val() });
-                    });
-                    // 按时间倒序显示
-                    messages.reverse().forEach(msg => {
-                        const messageItem = document.createElement('div');
-                        messageItem.className = 'message-item';
-                        messageItem.innerHTML = `
-                            <div>
-                                <p>${msg.text}</p>
-                                <p class="time">${msg.time}</p>
-                            </div>
-                            <button class="delete-btn" data-id="${msg.id}">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        `;
-                        messageList.appendChild(messageItem);
-                    });
+                try {
+                    database.ref('messages').orderByChild('time').on('value', snapshot => {
+                        messageList.innerHTML = '';
+                        const messages = [];
+                        snapshot.forEach(childSnapshot => {
+                            messages.push({ id: childSnapshot.key, ...childSnapshot.val() });
+                        });
+                        // 按时间倒序显示
+                        messages.reverse().forEach(msg => {
+                            const messageItem = document.createElement('div');
+                            messageItem.className = 'message-item';
+                            messageItem.innerHTML = `
+                                <div>
+                                    <p>${msg.text}</p>
+                                    <p class="time">${msg.time}</p>
+                                </div>
+                                <button class="delete-btn" data-id="${msg.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            `;
+                            messageList.appendChild(messageItem);
+                        });
 
-                    // 添加删除按钮事件
-                    document.querySelectorAll('.delete-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const id = this.getAttribute('data-id');
-                            deleteMessage(id);
+                        // 添加删除按钮事件
+                        document.querySelectorAll('.delete-btn').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const id = this.getAttribute('data-id');
+                                deleteMessage(id);
+                            });
                         });
                     });
-                });
+                } catch (error) {
+                    console.error('加载留言失败:', error);
+                }
             }
 
             // 保存留言到 Firebase
             function saveMessage(text) {
-                const time = new Date().toLocaleString('zh-CN', { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit', 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit',
-                    hour12: false,
-                    timeZone: 'Asia/Hong_Kong'
-                });
-                database.ref('messages').push({ text, time });
+                try {
+                    const time = new Date().toLocaleString('zh-CN', { 
+                        year: 'numeric', 
+                        month: '2-digit', 
+                        day: '2-digit', 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit',
+                        hour12: false,
+                        timeZone: 'Asia/Hong_Kong'
+                    });
+                    database.ref('messages').push({ text, time });
+                    console.log('留言保存成功:', text);
+                } catch (error) {
+                    console.error('保存留言失败:', error);
+                }
             }
 
             // 删除留言
             function deleteMessage(id) {
-                database.ref('messages/' + id).remove();
+                try {
+                    database.ref('messages/' + id).remove();
+                    console.log('留言删除成功:', id);
+                } catch (error) {
+                    console.error('删除留言失败:', error);
+                }
             }
 
             // 提交密码
             submitBtn.addEventListener('click', function() {
+                console.log('点击解锁按钮');
                 const enteredPassword = passwordInput.value;
+                if (!enteredPassword) {
+                    errorMessage.textContent = '请输入密码！';
+                    errorMessage.style.display = 'block';
+                    passwordInput.classList.add('shake');
+                    setTimeout(() => {
+                        passwordInput.classList.remove('shake');
+                        errorMessage.style.display = 'none';
+                    }, 500);
+                    return;
+                }
+                
                 let matchedConfig = null;
                 
                 // 检查密码
-                for (const config of passwordConfig) {
-                    if (config.password) {
-                        // 明文密码检查
-                        if (enteredPassword === config.password) {
-                            matchedConfig = config;
-                            break;
-                        }
-                    } else {
-                        // MD5哈希密码检查
-                        const enteredHash = md5(enteredPassword);
-                        if (enteredHash === config.hash) {
-                            matchedConfig = config;
-                            break;
+                try {
+                    for (const config of passwordConfig) {
+                        if (config.password) {
+                            // 明文密码检查
+                            if (enteredPassword === config.password) {
+                                matchedConfig = config;
+                                break;
+                            }
+                        } else {
+                            // MD5哈希密码检查
+                            const enteredHash = md5(enteredPassword);
+                            console.log('输入密码的 MD5:', enteredHash);
+                            if (enteredHash === config.hash) {
+                                matchedConfig = config;
+                                break;
+                            }
                         }
                     }
+                } catch (error) {
+                    console.error('密码验证失败:', error);
                 }
                 
                 if (matchedConfig) {
+                    console.log('密码正确:', matchedConfig.playerId);
                     // 密码正确
                     errorMessage.style.display = 'none';
                     
@@ -584,6 +625,7 @@
                     }, 300);
                 } else {
                     // 密码错误
+                    console.log('密码错误');
                     errorMessage.textContent = '密码错误，请重试！';
                     errorMessage.style.display = 'block';
                     passwordInput.classList.add('shake');
@@ -592,18 +634,20 @@
                     
                     setTimeout(() => {
                         passwordInput.classList.remove('shake');
+                        errorMessage.style.display = 'none';
                     }, 500);
                 }
             });
 
             // 提交留言
             submitMessageBtn.addEventListener('click', function() {
+                console.log('点击提交留言按钮');
                 const messageText = messageInput.value.trim();
-                if (messageText) {
+                if (messageText && messageText.length <= 500) {
                     saveMessage(messageText);
                     messageInput.value = '';
                 } else {
-                    errorMessage.textContent = '留言不能为空！';
+                    errorMessage.textContent = messageText ? '留言不能超过500字符！' : '留言不能为空！';
                     errorMessage.style.display = 'block';
                     setTimeout(() => {
                         errorMessage.style.display = 'none';
@@ -613,6 +657,7 @@
 
             // 支持按Enter键提交密码
             passwordInput.addEventListener('keyup', function(event) {
+                console.log('按下键盘:', event.key);
                 if (event.key === 'Enter') {
                     submitBtn.click();
                 }
