@@ -235,6 +235,10 @@
             background: #c0392b;
         }
         
+        .share-section {
+            margin-bottom: 20px;
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -367,6 +371,15 @@
             <!-- 留言区域 -->
             <div class="message-section" id="messageSection">
                 <h3><i class="fas fa-comment"></i> 留言板</h3>
+                <div class="share-section">
+                    <button class="btn" id="generateQRBtn">
+                        <i class="fas fa-qrcode"></i> 生成分享二维码
+                    </button>
+                    <div id="qrCodeContainer" style="display: none; margin-top: 20px; text-align: center;">
+                        <div id="qrcode"></div>
+                        <p>扫描二维码分享此留言板</p>
+                    </div>
+                </div>
                 <textarea class="message-input" id="messageInput" placeholder="输入你的留言..."></textarea>
                 <button class="btn" id="submitMessageBtn">
                     <i class="fas fa-paper-plane"></i> 提交留言
@@ -383,32 +396,37 @@
     <!-- 引入MD5库 -->
     <script src="https://cdn.jsdelivr.net/npm/blueimp-md5@2.19.0/js/md5.min.js"></script>
     <!-- 引入Firebase 兼容版本 -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    <!-- 如果需要匿名认证，添加 auth 兼容版本 -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-database-compat.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-auth-compat.min.js"></script>
+    <!-- 引入QRCode库 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     
     <script>
         // Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyDi-n6CD4nzdKrIW9yH9YIdWu3t4ghTBLI",
             authDomain: "musicmessagesystem.firebaseapp.com",
+            databaseURL: "https://musicmessagesystem-default-rtdb.firebaseio.com",
             projectId: "musicmessagesystem",
-            storageBucket: "musicmessagesystem.firebasestorage.app",
+            storageBucket: "musicmessagesystem.appspot.com",
             messagingSenderId: "1065289192026",
             appId: "1:1065289192026:web:4cd388db98a33d48eafe63"
         };
 
         // 初始化 Firebase
+        let database;
         try {
             firebase.initializeApp(firebaseConfig);
             console.log('Firebase 初始化成功');
+            database = firebase.database();
             // 启用匿名认证（如果数据库规则要求）
             firebase.auth().signInAnonymously().catch(error => console.error('匿名认证失败:', error));
         } catch (error) {
             console.error('Firebase 初始化失败:', error);
+            // 使用本地存储作为回退
+            database = null;
         }
-        const database = firebase.database();
 
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM 加载完成');
@@ -424,6 +442,8 @@
             const messageInput = document.getElementById('messageInput');
             const submitMessageBtn = document.getElementById('submitMessageBtn');
             const messageList = document.getElementById('messageList');
+            const generateQRBtn = document.getElementById('generateQRBtn');
+            const qrCodeContainer = document.getElementById('qrCodeContainer');
             
             // 密码和音频/留言配置
             const passwordConfig = [
@@ -465,45 +485,59 @@
             });
             messageSection.style.display = 'none';
 
-            // 从 Firebase 加载留言
+            // 从 Firebase 或本地存储加载留言
             function loadMessages() {
                 try {
-                    database.ref('messages').orderByChild('time').on('value', snapshot => {
-                        messageList.innerHTML = '';
-                        const messages = [];
-                        snapshot.forEach(childSnapshot => {
-                            messages.push({ id: childSnapshot.key, ...childSnapshot.val() });
-                        });
-                        // 按时间倒序显示
-                        messages.reverse().forEach(msg => {
-                            const messageItem = document.createElement('div');
-                            messageItem.className = 'message-item';
-                            messageItem.innerHTML = `
-                                <div>
-                                    <p>${msg.text}</p>
-                                    <p class="time">${msg.time}</p>
-                                </div>
-                                <button class="delete-btn" data-id="${msg.id}">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            `;
-                            messageList.appendChild(messageItem);
-                        });
-
-                        // 添加删除按钮事件
-                        document.querySelectorAll('.delete-btn').forEach(btn => {
-                            btn.addEventListener('click', function() {
-                                const id = this.getAttribute('data-id');
-                                deleteMessage(id);
+                    if (database) {
+                        // 使用Firebase
+                        database.ref('messages').orderByChild('time').on('value', snapshot => {
+                            messageList.innerHTML = '';
+                            const messages = [];
+                            snapshot.forEach(childSnapshot => {
+                                messages.push({ id: childSnapshot.key, ...childSnapshot.val() });
                             });
+                            displayMessages(messages.reverse());
                         });
-                    });
+                    } else {
+                        // 使用本地存储
+                        const messages = JSON.parse(localStorage.getItem('messages')) || [];
+                        displayMessages(messages);
+                    }
                 } catch (error) {
                     console.error('加载留言失败:', error);
+                    // 使用本地存储作为回退
+                    const messages = JSON.parse(localStorage.getItem('messages')) || [];
+                    displayMessages(messages);
                 }
             }
 
-            // 保存留言到 Firebase
+            function displayMessages(messages) {
+                messageList.innerHTML = '';
+                messages.forEach(msg => {
+                    const messageItem = document.createElement('div');
+                    messageItem.className = 'message-item';
+                    messageItem.innerHTML = `
+                        <div>
+                            <p>${msg.text}</p>
+                            <p class="time">${msg.time}</p>
+                        </div>
+                        <button class="delete-btn" data-id="${msg.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    `;
+                    messageList.appendChild(messageItem);
+                });
+
+                // 添加删除按钮事件
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        deleteMessage(id);
+                    });
+                });
+            }
+
+            // 保存留言到 Firebase 或本地存储
             function saveMessage(text) {
                 try {
                     const time = new Date().toLocaleString('zh-CN', { 
@@ -514,24 +548,88 @@
                         minute: '2-digit', 
                         second: '2-digit',
                         hour12: false,
-                        timeZone: 'Asia/Hong_Kong'
+                        timeZone: 'Asia/Shanghai'
                     });
-                    database.ref('messages').push({ text, time });
-                    console.log('留言保存成功:', text);
+                    
+                    if (database) {
+                        // 使用Firebase
+                        database.ref('messages').push({ text, time });
+                        console.log('留言保存到Firebase成功:', text);
+                    } else {
+                        // 使用本地存储
+                        const messages = JSON.parse(localStorage.getItem('messages')) || [];
+                        messages.push({ text, time, id: Date.now().toString() });
+                        localStorage.setItem('messages', JSON.stringify(messages));
+                        console.log('留言保存到本地存储成功:', text);
+                        // 重新加载显示
+                        loadMessages();
+                    }
                 } catch (error) {
                     console.error('保存留言失败:', error);
+                    // 尝试使用本地存储作为回退
+                    try {
+                        const messages = JSON.parse(localStorage.getItem('messages')) || [];
+                        const time = new Date().toLocaleString('zh-CN', { 
+                            year: 'numeric', 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            second: '2-digit',
+                            hour12: false,
+                            timeZone: 'Asia/Shanghai'
+                        });
+                        messages.push({ text, time, id: Date.now().toString() });
+                        localStorage.setItem('messages', JSON.stringify(messages));
+                        console.log('留言保存到本地存储成功:', text);
+                        // 重新加载显示
+                        loadMessages();
+                    } catch (localError) {
+                        console.error('本地存储也失败:', localError);
+                    }
                 }
             }
 
             // 删除留言
             function deleteMessage(id) {
                 try {
-                    database.ref('messages/' + id).remove();
-                    console.log('留言删除成功:', id);
+                    if (database) {
+                        // 使用Firebase
+                        database.ref('messages/' + id).remove();
+                        console.log('留言从Firebase删除成功:', id);
+                    } else {
+                        // 使用本地存储
+                        const messages = JSON.parse(localStorage.getItem('messages')) || [];
+                        const updatedMessages = messages.filter(msg => msg.id !== id);
+                        localStorage.setItem('messages', JSON.stringify(updatedMessages));
+                        console.log('留言从本地存储删除成功:', id);
+                        // 重新加载显示
+                        loadMessages();
+                    }
                 } catch (error) {
                     console.error('删除留言失败:', error);
                 }
             }
+
+            // 生成二维码
+            generateQRBtn.addEventListener('click', function() {
+                const currentUrl = window.location.href;
+                QRCode.toCanvas(document.getElementById('qrcode'), currentUrl, {
+                    width: 200,
+                    margin: 2
+                }, function(error) {
+                    if (error) {
+                        console.error('生成二维码失败:', error);
+                        errorMessage.textContent = '生成二维码失败，请重试！';
+                        errorMessage.style.display = 'block';
+                        setTimeout(() => {
+                            errorMessage.style.display = 'none';
+                        }, 2000);
+                    } else {
+                        qrCodeContainer.style.display = 'block';
+                    }
+                });
+            });
 
             // 提交密码
             submitBtn.addEventListener('click', function() {
@@ -585,6 +683,7 @@
                         }
                     });
                     messageSection.style.display = 'none';
+                    qrCodeContainer.style.display = 'none';
                     
                     // 根据密码显示音频播放器或留言区域
                     if (matchedConfig.playerId.startsWith('audioPlayer')) {
